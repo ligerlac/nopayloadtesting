@@ -1,31 +1,42 @@
 import json
 import argparse
 import htcondor
+from pathlib import Path
+
+
+def get_exec_string(conf_dict):
+    with open(conf_dict['executable'], 'r') as f:
+        exec_string_ = f.read()
+    exec_string = ""
+    for i in range(conf_dict['calls_per_job']):
+        exec_string += exec_string_ + '\n'
+    return exec_string
 
 
 def main(args):
     with open(args.conf) as f:
         conf_dict = json.load(f)
 
-    hostname_job = htcondor.Submit({
-        "executable": "/bin/hostname",  # the program to run on the execute node
-        "output": "hostname.out",       # anything the job prints to standard output will end up in this file
-        "error": "hostname.err",        # anything the job prints to standard error will end up in this file
-        "log": "hostname.log",          # this file will contain a record of what happened to the job
-        "request_cpus": "1",            # how many CPU cores we want
-        "request_memory": "128MB",      # how much memory we want
-        "request_disk": "128MB",        # how much disk space we want
+    exec_string = get_exec_string(conf_dict)
+    exec_file = Path.cwd() / args.output / "executable.sh"
+    exec_file.write_text(exec_string)
+
+    job = htcondor.Submit({
+        "executable": args.output + "/executable.sh",
+        "output": args.output + "/$(ProcId).out",
+        "error": args.output + "/$(ProcId).err",
+        "log": args.output + "/log.log"
     })
 
-    print(hostname_job)
+    schedd = htcondor.Schedd()
+    submit_result = schedd.submit(job, count=conf_dict["calls_per_job"])
+    print(submit_result.cluster())
 
-    schedd = htcondor.Schedd()                   # get the Python representation of the scheduler
-    submit_result = schedd.submit(hostname_job)  # submit the job
-    print(submit_result.cluster())               # print the job's ClusterId
 
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--conf', type=str, default='conf/lino.json', help='path to config file') 
+    parser.add_argument('--output', type=str, default='output/', help='output folder') 
     args = parser.parse_args()
     main(args)
