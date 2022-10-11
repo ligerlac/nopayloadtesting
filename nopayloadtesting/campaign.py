@@ -1,6 +1,7 @@
 import htcondor
 import shutil
 import time
+import json
 from pathlib import Path
 
 
@@ -17,14 +18,17 @@ class Campaign:
         p = Path(Path.cwd() / self.output)
         shutil.rmtree(p, ignore_errors=True)
         p.mkdir(parents=True, exist_ok=True)
+        p = Path(p / 'jobs/')
+        shutil.rmtree(p, ignore_errors=True)
+        p.mkdir(parents=True, exist_ok=True)
 
 
     def create_job(self):
         return htcondor.Submit({
             "executable": self.executable,
             "arguments": self.n_calls,
-            "output": self.output + "/$(ProcId).out",
-            "error": self.output + "/$(ProcId).err",
+            "output": self.output + "/jobs/$(ProcId).out",
+            "error": self.output + "/jobs/$(ProcId).err",
             "log": self.output + "/log.log"
         })
 
@@ -47,3 +51,9 @@ class Campaign:
                 break
             print(f'{len(q_status)} job(s) still running. sleeping for {t} seconds')
             time.sleep(t)
+
+
+    def write_config_to_file(self):
+        with open(self.output + '/campaign_config.json', 'w') as f:
+            json.dump(self.__dict__, f)
+        

@@ -1,6 +1,5 @@
 import re, glob
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 class Summariser:
@@ -12,8 +11,7 @@ class Summariser:
 
     def extract_raw_results(self):
         _run_times, _http_codes = [], []
-        for fn in glob.iglob(f'{self.output}/campaign/*out'):
-            print(f'fn = {fn}')
+        for fn in glob.iglob(f'{self.output}/jobs/*out'):
             with open(fn, 'r') as f:
                 for line in f:
                     if re.search('runtime', line):
