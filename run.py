@@ -1,42 +1,39 @@
-import json
 import argparse
-import htcondor
-from pathlib import Path
+import re, glob
+from nopayloadtesting.campaign import Campaign
 
 
-def get_exec_string(conf_dict):
-    with open(conf_dict['executable'], 'r') as f:
-        exec_string_ = f.read()
-    exec_string = ""
-    for i in range(conf_dict['calls_per_job']):
-        exec_string += exec_string_ + '\n'
-    return exec_string
+def extract_run_times_and_http_codes(output_path):
+    run_times = []
+    http_codes = []
+    for fn in glob.iglob(f'{output_path}/*out'):
+        print(f'fn = {fn}')
+        with open(fn, 'r') as f:
+            for line in f:
+                if re.search('runtime', line):
+                    run_times.append(float(line.split('runtime=')[1].strip()))
+                if re.search('httpcode', line):
+                    http_codes.append(int(line.split('httpcode=')[1].strip()))
+    return run_times, http_codes
 
 
 def main(args):
-    with open(args.conf) as f:
-        conf_dict = json.load(f)
+    campaign = Campaign(args.executable, args.njobs, args.ncalls, args.output)
+    campaign.prepare_output_folder()
+    campaign.submit()
+    campaign.wait_for_jobs_to_finish()
+    
+    run_times, http_codes = extract_run_times_and_http_codes(args.output)
 
-    exec_string = get_exec_string(conf_dict)
-    exec_file = Path.cwd() / args.output / "executable.sh"
-    exec_file.write_text(exec_string)
-
-    job = htcondor.Submit({
-        "executable": args.output + "/executable.sh",
-        "output": args.output + "/$(ProcId).out",
-        "error": args.output + "/$(ProcId).err",
-        "log": args.output + "/log.log"
-    })
-
-    schedd = htcondor.Schedd()
-    submit_result = schedd.submit(job, count=conf_dict["calls_per_job"])
-    print(submit_result.cluster())
+    print(f'run_times = {run_times}')
+    print(f'http_codes = {http_codes}')
 
 
- 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--conf', type=str, default='conf/lino.json', help='path to config file') 
-    parser.add_argument('--output', type=str, default='output/', help='output folder') 
+    parser.add_argument('--output', type=str, default='output/latest', help='output folder') 
+    parser.add_argument('--njobs', type=int, default=2, help='number of jobs') 
+    parser.add_argument('--ncalls', type=int, default=2, help='number of calls to service by job')
+    parser.add_argument('--executable', type=str, default='executables/curl_lino.sh', help='path to executable')
     args = parser.parse_args()
     main(args)
