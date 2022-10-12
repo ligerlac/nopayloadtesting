@@ -1,7 +1,6 @@
 import argparse
 from nopayloadtesting.campaign import Campaign
 from nopayloadtesting.summariser import Summariser
-from nopayloadtesting.plotter import Plotter
 
 
 def main(args):
@@ -17,13 +16,6 @@ def main(args):
 
     print(f'run_times = {summariser.run_times}')
     print(f'http_codes = {summariser.http_codes}')
-
-#    plotter = Plotter(args.output)
-#    plotter.load_raw_results()
-#    plotter.plot_run_times()
-
-#    print(f'run_times = {plotter.run_times}')
-#    print(f'http_codes = {plotter.http_codes}')
 
 
 if __name__ == '__main__':
