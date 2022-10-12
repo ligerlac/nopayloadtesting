@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 
 class Plotter:
-    def __init__(self, output):
+    def __init__(self, input):
         self.output = output
         self.run_times = None
         self.http_codes = None
