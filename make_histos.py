@@ -52,10 +52,10 @@ def decorate_info_box(axis, arr):
     min_, max_ = np.min(arr), np.max(arr)
     mu, sig = np.mean(arr), np.std(arr)
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    textstr = '\n'.join((r'$min=%.3f$' % (min_, ),
-                         r'$max=%.2f$' % (max_, ),
-                         r'$\mu=%.2f$' % (mu, ),
-                         r'$\sigma=%.2f$' % (sig, )))
+    textstr = '\n'.join((r'$min=%.4f$' % (min_, ),
+                         r'$max=%.4f$' % (max_, ),
+                         r'$\mu=%.4f$' % (mu, ),
+                         r'$\sigma=%.4f$' % (sig, )))
     axis.text(0.4, 0.95, textstr, transform=axis.transAxes, fontsize=12,
               verticalalignment='top', bbox=props)
 

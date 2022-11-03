@@ -1,2 +1,0 @@
-# copy file via safe file transfer. make sure to delete the jobs/ folder on remote first
-sftp -r -i ~/.ssh/id_rsa_sdcc lgerlach1@sftp.sdcc.bnl.gov:/lbne/u/lgerlach1/Projects/nopayloadtesting/output/* output/
