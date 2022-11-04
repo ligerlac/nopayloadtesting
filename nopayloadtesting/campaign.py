@@ -7,7 +7,7 @@ from pathlib import Path
 
 class Campaign:
     def __init__(self, executable, n_jobs, n_calls, output):
-        self.executable = executable
+        self.executable = executable 
         self.n_jobs = n_jobs
         self.n_calls = n_calls
         self.output = output
@@ -29,7 +29,8 @@ class Campaign:
             "arguments": self.n_calls,
             "output": self.output + "/jobs/$(ProcId).out",
             "error": self.output + "/jobs/$(ProcId).err",
-            "log": self.output + "/log.log"
+            "log": self.output + "/log.log",
+            "getenv": True
         })
 
 
@@ -56,4 +57,3 @@ class Campaign:
     def write_config_to_file(self):
         with open(self.output + '/campaign_config.json', 'w') as f:
             json.dump(self.__dict__, f)
-        
