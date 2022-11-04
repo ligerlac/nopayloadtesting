@@ -2,10 +2,7 @@
 
 useage="$0 <client_config> <n_calls>"
 
-#export NOPAYLOADCLIENT_CONF=sdcc.json
 export NOPAYLOADCLIENT_CONF=$1
-
-echo size=`./executables/test_size`
 
 for i in $(eval echo {1..$2})
 do
