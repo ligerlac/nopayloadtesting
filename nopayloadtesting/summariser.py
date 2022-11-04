@@ -7,6 +7,7 @@ class Summariser:
         self.output = output
         self.run_times = None
         self.http_codes = None
+        self.db_size_dict = None
 
 
     def extract_raw_results(self):
@@ -16,8 +17,10 @@ class Summariser:
                 for line in f:
                     if re.search('runtime', line):
                         _run_times.append(float(line.split('runtime=')[1].strip()))
-                    if re.search('httpcode', line):
-                        _http_codes.append(int(line.split('httpcode=')[1].strip()))
+                    elif re.search('"code":', line):
+                        _http_codes.append(int(line.split('"code":')[1].split(',')[0].strip()))
+                    elif re.search('"code":', line):
+                        _http_codes.append(int(line.split('"code":')[1].split(',')[0].strip()))
         self.run_times = np.array(_run_times)
         self.http_codes = np.array(_http_codes)
 

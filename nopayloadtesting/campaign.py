@@ -2,12 +2,14 @@ import htcondor
 import shutil
 import time
 import json
+import subprocess
 from pathlib import Path
 
 
 class Campaign:
-    def __init__(self, executable, n_jobs, n_calls, output):
-        self.executable = executable 
+    def __init__(self, executable, client_conf, n_jobs, n_calls, output):
+        self.executable = executable
+        self.client_conf = client_conf
         self.n_jobs = n_jobs
         self.n_calls = n_calls
         self.output = output
@@ -26,7 +28,7 @@ class Campaign:
     def create_job(self):
         return htcondor.Submit({
             "executable": self.executable,
-            "arguments": self.n_calls,
+            "arguments": f"{self.client_conf} {self.n_calls}",
             "output": self.output + "/jobs/$(ProcId).out",
             "error": self.output + "/jobs/$(ProcId).err",
             "log": self.output + "/log.log",
@@ -55,5 +57,14 @@ class Campaign:
 
 
     def write_config_to_file(self):
+        total_conf = self.__dict__
+        for key, value in self.get_db_size_dict().items():
+            total_conf[key] = value
         with open(self.output + '/campaign_config.json', 'w') as f:
-            json.dump(self.__dict__, f)
+            json.dump(total_conf, f)
+
+    def get_db_size_dict(self):
+        x = subprocess.run('executables/test_size', capture_output=True)
+        x_dict = json.loads(x.stdout.decode("utf-8"))
+        x_dict = x_dict['msg']
+        return x_dict

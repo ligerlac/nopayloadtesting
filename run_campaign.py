@@ -4,7 +4,7 @@ from nopayloadtesting.summariser import Summariser
 
 
 def main(args):
-    campaign = Campaign(args.executable, args.njobs, args.ncalls, args.output)
+    campaign = Campaign(args.executable, args.clientconf, args.njobs, args.ncalls, args.output)
     campaign.prepare_output_folder()
     campaign.write_config_to_file()
     campaign.submit()
@@ -24,5 +24,6 @@ if __name__ == '__main__':
     parser.add_argument('--njobs', type=int, default=2, help='number of jobs') 
     parser.add_argument('--ncalls', type=int, default=2, help='number of calls to service by job')
     parser.add_argument('--executable', type=str, default='executables/client_lino.sh', help='path to executable')
+    parser.add_argument('--clientconf', type=str, default='sdcc.json', help='name of nopayloadclient config file')
     args = parser.parse_args()
     main(args)
