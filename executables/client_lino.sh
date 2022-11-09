@@ -2,7 +2,7 @@
 
 useage="$0 <client_config> <n_calls>"
 
-export NOPAYLOADCLIENT_CONF=$1
+#export NOPAYLOADCLIENT_CONF=$1
 
 for i in $(eval echo {1..$2})
 do

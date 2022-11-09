@@ -3,15 +3,30 @@ import shutil
 import time
 import json
 import subprocess
+import os
 from pathlib import Path
 
 
+class AccessPattern:
+    def __init__(self, name):
+        self.name = name
+
+    def gt(self):
+        return 'sPHENIX_ExampleGT_1'
+
+    def pt(self):
+        return 'Beam'
+
+    def iov(self):
+        return '1'
+
+
 class Campaign:
-    def __init__(self, executable, client_conf, n_jobs, n_calls, output):
-        self.executable = executable
+    def __init__(self, client_conf, n_jobs, n_calls, access_pattern, output):
         self.client_conf = client_conf
         self.n_jobs = n_jobs
         self.n_calls = n_calls
+        self.access_pattern = access_pattern
         self.output = output
         self.cluster_id = None
 
@@ -27,8 +42,7 @@ class Campaign:
 
     def create_job(self):
         return htcondor.Submit({
-            "executable": self.executable,
-            "arguments": f"{self.client_conf} {self.n_calls}",
+            "executable": self.output + "/run.sh",
             "output": self.output + "/jobs/$(ProcId).out",
             "error": self.output + "/jobs/$(ProcId).err",
             "log": self.output + "/log.log",
@@ -63,8 +77,33 @@ class Campaign:
         with open(self.output + '/campaign_config.json', 'w') as f:
             json.dump(total_conf, f)
 
+
+    def create_executable(self):
+        string = '#!/usr/bin/bash\n'
+        ap = AccessPattern(self.access_pattern)
+        for i in range(self.n_calls):
+            string += 'start=`date +%s.%N`\n'
+            string += f'echo res=`./executables/cli_get {ap.gt()} {ap.pt()} {ap.iov()} 0 `\n'
+            string += 'end=`date +%s.%N`\n'
+            string += 'runtime=$( echo "$end - $start" | bc -l)\n'
+            string += 'echo runtime=$runtime\n'
+    
+        with open(self.output + '/run.sh', 'w') as f:
+            f.write(string)
+
+        os.chmod(self.output + '/run.sh', 0o755)
+
+
     def get_db_size_dict(self):
+        print(os.environ["NOPAYLOADCLIENT_CONF"])
         x = subprocess.run('executables/test_size', capture_output=True)
         x_dict = json.loads(x.stdout.decode("utf-8"))
         x_dict = x_dict['msg']
         return x_dict
+
+
+    def prepare(self):
+        os.environ["NOPAYLOADCLIENT_CONF"] = self.client_conf
+        self.prepare_output_folder()
+        self.create_executable()
+        self.write_config_to_file()
