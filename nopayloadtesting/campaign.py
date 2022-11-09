@@ -8,17 +8,23 @@ from pathlib import Path
 
 
 class AccessPattern:
-    def __init__(self, name):
+    # assumes (gt_i, pt_j, k) structure as defined in nopayloadclient example
+    def __init__(self, name, db_size_dict):
         self.name = name
+        self.n_gt = db_size_dict['n_global_tag']
+        self.n_pt = db_size_dict['n_pt']
+        self.n_iov = db_size_dict['n_iov_attached']
+        print(f'initialized AP instance with name {name} and following db size:\n{db_size_dict}')
 
     def gt(self):
-        return 'sPHENIX_ExampleGT_1'
+        return 'gt_0'
 
     def pt(self):
-        return 'Beam'
+        return 'pt_0'
 
-    def iov(self):
-        return '1'
+    def get_iov_expr(self):
+        max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
+        return f'$((RANDOM%{max_iov}))'
 
 
 class Campaign:
@@ -28,6 +34,7 @@ class Campaign:
         self.n_calls = n_calls
         self.access_pattern = access_pattern
         self.output = output
+        self.db_size_dict = None
         self.cluster_id = None
 
 
@@ -71,19 +78,17 @@ class Campaign:
 
 
     def write_config_to_file(self):
-        total_conf = self.__dict__
-        for key, value in self.get_db_size_dict().items():
-            total_conf[key] = value
         with open(self.output + '/campaign_config.json', 'w') as f:
-            json.dump(total_conf, f)
+            json.dump(self.__dict__, f)
 
 
     def create_executable(self):
         string = '#!/usr/bin/bash\n'
-        ap = AccessPattern(self.access_pattern)
+        ap = AccessPattern(self.access_pattern, self.db_size_dict)
+        iov = ap.get_iov_expr()
         for i in range(self.n_calls):
             string += 'start=`date +%s.%N`\n'
-            string += f'echo res=`./executables/cli_get {ap.gt()} {ap.pt()} {ap.iov()} 0 `\n'
+            string += f'echo res=`./executables/cli_get {ap.gt()} {ap.pt()} {iov} 0 `\n'
             string += 'end=`date +%s.%N`\n'
             string += 'runtime=$( echo "$end - $start" | bc -l)\n'
             string += 'echo runtime=$runtime\n'
@@ -94,16 +99,16 @@ class Campaign:
         os.chmod(self.output + '/run.sh', 0o755)
 
 
-    def get_db_size_dict(self):
-        print(os.environ["NOPAYLOADCLIENT_CONF"])
-        x = subprocess.run('executables/test_size', capture_output=True)
+    def set_db_size_dict(self):
+        x = subprocess.run('executables/check_size', capture_output=True)
         x_dict = json.loads(x.stdout.decode("utf-8"))
         x_dict = x_dict['msg']
-        return x_dict
+        self.db_size_dict = x_dict
 
 
     def prepare(self):
         os.environ["NOPAYLOADCLIENT_CONF"] = self.client_conf
         self.prepare_output_folder()
+        self.set_db_size_dict()
         self.create_executable()
         self.write_config_to_file()
