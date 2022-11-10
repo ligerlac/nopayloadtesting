@@ -18,16 +18,17 @@ class Plotter:
         elapsed_time_htc = self.get_elapsed_time()
         elapsed_time_sum = np.sum(self.run_times)
         total_calls = campaign_config["n_jobs"]*campaign_config["n_calls"]
-        return f'executable:\n{campaign_config["executable"]}\n' \
-               f'client_conf:\n{campaign_config["client_conf"]}\n' \
+        print(f'campaign_config = {campaign_config}')
+        return f'client_conf:\n{campaign_config["client_conf"]}\n' \
                f'total calls:\n{total_calls} \n' \
                f'n_jobs: {campaign_config["n_jobs"]} \n' \
                f'n_calls: {campaign_config["n_calls"]}\n' \
                f'dt (htc): {elapsed_time_htc}\n' \
                f'avg. f [hz]: {round(total_calls / elapsed_time_htc.seconds)}\n' \
-               f'n_global_tag: {campaign_config["n_global_tag"]}\n' \
-               f'n_iov_attached: {campaign_config["n_iov_attached"]}\n' \
-               f'n_iov_tot: {campaign_config["n_iov_tot"]}\n' \
+               f'acc. pattern: {campaign_config["access_pattern"]}\n' \
+               f'n_global_tag: {campaign_config["db_size_dict"]["n_global_tag"]}\n' \
+               f'n_iov_attached: {campaign_config["db_size_dict"]["n_iov_attached"]}\n' \
+               f'n_iov_tot: {campaign_config["db_size_dict"]["n_iov_tot"]}\n' \
                
 
     def get_elapsed_time(self):
@@ -62,8 +63,8 @@ class Plotter:
         plt.figtext(0.82, 0.3, self.get_meta_str(), fontsize=11)
         plt.subplots_adjust(right=0.8)
         plt.yscale('log')
-#        plt.savefig(f'{args.input}/summary_plot.png')
-        plt.show()
+        plt.savefig(f'{self.folder}/summary_plot.png')
+#        plt.show()
 
 
 def decorate_info_box(axis, arr):
