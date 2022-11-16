@@ -13,12 +13,12 @@ from pathlib import Path
 
 class AccessPattern:
     # assumes (gt_i, pt_j, k) structure as defined in nopayloadclient example
-    def __init__(self, name, db_size_dict):
-        self.name = name
+    def __init__(self, pattern, db_size_dict):
+        self.pattern = pattern
         self.n_gt = db_size_dict['n_global_tag']
         self.n_pt = db_size_dict['n_pt']
         self.n_iov = db_size_dict['n_iov_attached']
-        print(f'initialized AP instance with name {name} and following db size:\n{db_size_dict}')
+        print(f'initialized AP instance with pattern {pattern} and following db size:\n{db_size_dict}')
 
     def get_gt_expr(self):
         return 'global_tag_0'
@@ -27,9 +27,11 @@ class AccessPattern:
         return 'pl_type_0'
 
     def get_iov_expr(self):
-        return '0'
-#        max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
-#        return f'$((RANDOM%{max_iov}))'
+        if self.pattern[2] == 'c':
+            return '0'
+        else:
+            max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
+            return f'$((RANDOM%{max_iov}))'
 
 
 class Campaign:
@@ -121,11 +123,16 @@ class Campaign:
         gt = ap.get_gt_expr()
         pt = ap.get_pt_expr()
         iov = ap.get_iov_expr()
-        for i in range(self.n_calls):
-            string += f'echo requesting payload url for gt={gt}, pt={pt}, and iov={iov}\n'
-            string += 'echo begin client: `date +%s%3N`\n'
-            string += f'echo res=`./executables/cli_get {gt} {pt} {iov} 0 `\n'
-            string += 'echo end client: `date +%s%3N`\n'
+        string += f'for i in $(eval echo {{1..{self.n_calls}}})\n'
+        string += 'do\n'
+        string += f'  gt={gt}\n'
+        string += f'  pt={pt}\n'
+        string += f'  iov={iov}\n'
+        string += '  echo requesting payload url for gt=$gt, pt=$pt, and iov=$iov\n'
+        string += '  echo begin client: `date +%s%3N`\n'
+        string += '  echo res=`./executables/cli_get $gt $pt $iov 0 `\n'
+        string += '  echo end client: `date +%s%3N`\n'
+        string += 'done\n'
     
         with open(self.output + '/run.sh', 'w') as f:
             f.write(string)
@@ -134,13 +141,17 @@ class Campaign:
 
 
     def set_db_size_dict(self):
+        print(os.environ["NOPAYLOADCLIENT_CONF"])
         x = subprocess.run('executables/check_size', capture_output=True)
         resp = x.stdout.decode("utf-8").split('\n')
+        print(f'resp = {resp}')
         for line in resp:
             if "n_global_tag" in line:
                 break
+        print(f'line = {line}')
         x_dict = json.loads(line)
         x_dict = x_dict['msg']
+        print(f'x_dict = {x_dict}')
         self.db_size_dict = x_dict
 
 

@@ -57,3 +57,9 @@ class Summariser:
         np.save(self.output+'/client_ends.npy', self.client_ends)
         np.save(self.output+'/http_codes.npy', self.http_codes)
 
+
+    def clean_up(self):
+        os.rmdir(self.output + '/jobs/')
+
+
+

@@ -1,12 +1,13 @@
 import argparse
 from datetime import datetime
+import os
 from nopayloadtesting.campaign import Campaign
 from nopayloadtesting.summariser import Summariser
 
 
 def main(args):
     campaign = Campaign(client_conf=args.clientconf, n_jobs=args.njobs, n_calls=args.ncalls, 
-                       access_pattern='access_pattern', output=args.output)
+                       access_pattern=args.pattern, output=args.output)
     campaign.prepare()
     if args.dryrun:
         return
@@ -16,8 +17,8 @@ def main(args):
     summariser = Summariser(args.output)
     summariser.extract_raw_results()
     summariser.save_raw_results()
+    summariser.clean_up()
 
-    print(f'run_times = {summariser.run_times}')
     print(f'http_codes = {summariser.http_codes}')
 
 
@@ -30,5 +31,6 @@ if __name__ == '__main__':
     parser.add_argument('--executable', type=str, default='executables/client_lino.sh', help='path to executable')
     parser.add_argument('--clientconf', type=str, default='sdcc.json', help='name of nopayloadclient config file')
     parser.add_argument('--dryrun', action='store_true', default=False, help='dont submit the job')
+    parser.add_argument('--pattern', type=str, default='ccc', help='example: rcr -> random gt, const pr, random iov')
     args = parser.parse_args()
     main(args)
