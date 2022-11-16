@@ -21,10 +21,16 @@ class AccessPattern:
         print(f'initialized AP instance with pattern {pattern} and following db size:\n{db_size_dict}')
 
     def get_gt_expr(self):
-        return 'global_tag_0'
+        if self.pattern[0] == 'c':
+            return 'global_tag_0'
+        else:
+            return f'global_tag_$((RANDOM%{self.n_gt}))'
 
     def get_pt_expr(self):
-        return 'pl_type_0'
+        if self.pattern[1] == 'c':
+            return 'pl_type_0'
+        else:
+            return f'pl_type_$((RANDOM%{self.n_pt}))'
 
     def get_iov_expr(self):
         if self.pattern[2] == 'c':
