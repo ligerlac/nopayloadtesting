@@ -5,16 +5,35 @@ import numpy as np
 class Summariser:
     def __init__(self, output):
         self.output = output
-        self.run_times = None
-        self.curl_times = None
+        self.curl_begins = None
+        self.curl_ends = None
+        self.client_begins = None
+        self.client_ends = None
         self.http_codes = None
         self.db_size_dict = None
 
-#requesting payload url for gt=global_tag_0, pt=pl_type_0, and iov=0
-#res=Time difference = 1.53558[s] {"code":0,"msg":"/lbne/u/lgerlach1/Projects/nopayloadclient/data/remote/global_tag_0/pl_type_0/0_0.dat"}
-#runtime=22.315281096
 
     def extract_raw_results(self):
+        _curl_begins, _curl_ends, _client_begins, _client_ends, _http_codes = [], [], [], [], []
+        for fn in glob.iglob(f'{self.output}/jobs/*out'):
+            with open(fn, 'r') as f:
+                for line in f:
+                    if re.search('begin client', line):
+                        _client_begins.append(int(line.split('begin client: ')[1].strip()))
+                    elif re.search('end client', line):
+                        _client_ends.append(int(line.split('end client: ')[1].strip()))
+                    elif re.search('res=', line):
+                        _curl_begins.append(int(line.split('begin curl: ')[1].split(' ')[0]))
+                        _curl_ends.append(int(line.split('end curl: ')[1].split(' ')[0]))
+                        _http_codes.append(int(line.split('"code":')[1].split(',')[0].strip()))
+        self.curl_begins = _curl_begins
+        self.curl_ends = _curl_ends
+        self.client_begins = _client_begins
+        self.client_ends = _client_ends
+        self.http_codes = _http_codes
+
+
+    def extract_raw_results_old(self):
         _run_times, _curl_times, _http_codes = [], [], []
         for fn in glob.iglob(f'{self.output}/jobs/*out'):
             with open(fn, 'r') as f:
@@ -32,7 +51,9 @@ class Summariser:
 
     
     def save_raw_results(self):
-        np.save(self.output+'/run_times.npy', self.run_times)
-        np.save(self.output+'/curl_times.npy', self.curl_times)
+        np.save(self.output+'/curl_begins.npy', self.curl_begins)
+        np.save(self.output+'/curl_ends.npy', self.curl_ends)
+        np.save(self.output+'/client_begins.npy', self.client_begins)
+        np.save(self.output+'/client_ends.npy', self.client_ends)
         np.save(self.output+'/http_codes.npy', self.http_codes)
 

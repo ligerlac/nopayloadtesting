@@ -30,7 +30,13 @@ TRUNCATE "PayloadList" CASCADE;
 TRUNCATE "PayloadListIdSequence" CASCADE;
 TRUNCATE "PayloadType" CASCADE;
 ```
-
+* populate the DB with example data
+```
+./executables/insert_performance_evaluation <n_gt> <n_pt> <n_iov>
+```
+where <n_gt> is the number of GlobalTags, <n_pt> is the number of PayloadTypes
+per global tag and <n_iov> is the number of PayloadIOVs per PayloadType and
+GlobalTag.
 * run a new campaign:
 ```
 python run_campaign.py

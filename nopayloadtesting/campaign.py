@@ -6,6 +6,10 @@ import subprocess
 import os
 from pathlib import Path
 
+#d = {'const': '0', 'rand': f'$((RANDOM%{max_iov}))'}
+#d = {'const': 'pl_type_0', 'rand': 'TODO'}
+#d = {'const': 'global_tag_0', 'rand': 'TODO'}
+
 
 class AccessPattern:
     # assumes (gt_i, pt_j, k) structure as defined in nopayloadclient example
@@ -16,15 +20,16 @@ class AccessPattern:
         self.n_iov = db_size_dict['n_iov_attached']
         print(f'initialized AP instance with name {name} and following db size:\n{db_size_dict}')
 
-    def gt(self):
-        return 'gt_0'
+    def get_gt_expr(self):
+        return 'global_tag_0'
 
-    def pt(self):
-        return 'pt_0'
+    def get_pt_expr(self):
+        return 'pl_type_0'
 
     def get_iov_expr(self):
-        max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
-        return f'$((RANDOM%{max_iov}))'
+        return '0'
+#        max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
+#        return f'$((RANDOM%{max_iov}))'
 
 
 class Campaign:
@@ -53,6 +58,7 @@ class Campaign:
             "output": self.output + "/jobs/$(ProcId).out",
             "error": self.output + "/jobs/$(ProcId).err",
             "log": self.output + "/log.log",
+            "requirements": '(Machine!="spool0679.sdcc.bnl.gov")&&(Machine!="spool0696.sdcc.bnl.gov")&&(Machine!="spool0870.sdcc.bnl.gov")&&(Machine!="spool0684.sdcc.bnl.gov")&&(Machine!="spool0685.sdcc.bnl.gov")&&(Machine!="spool0688.sdcc.bnl.gov")&&(Machine!="spool0693.sdcc.bnl.gov")&&(Machine!="spool0690.sdcc.bnl.gov")&&(Machine!="spool0695.sdcc.bnl.gov")&&(Machine!="spool0673.sdcc.bnl.gov")',
             "getenv": True
         })
 
@@ -84,14 +90,42 @@ class Campaign:
 
     def create_executable(self):
         string = '#!/usr/bin/bash\n'
+        ### test curl google ###
+        string += 'echo "testing node performance..."\n'
+        string += 'start=`date +%s.%N`\n'
+        string += 'httpcode=$(curl --write-out "%{http_code}" --silent --output /dev/null https://www.google.com)\n'
+        string += 'end=`date +%s.%N`\n'
+        string += 'runtime=$( echo "$end - $start" | bc -l)\n'
+        string += 'echo "test curl took $runtime sec"\n'
+        string += 'if (( $(echo "$runtime > 1" |bc -l) ))\n'
+        string += 'then\n'
+        string += '    echo "node is too slow, aborting..."\n'
+        string += '    exit\n'
+        string += 'fi\n'
+        ### test ls ###
+#        string += 'start=`date +%s.%N`\n'
+#        string += 'eval "ls"\n'
+#        string += 'end=`date +%s.%N`\n'
+#        string += 'runtime=$( echo "$end - $start" | bc -l)\n'
+#        string += 'echo "test ls took $runtime sec"\n'
+        ### test for-loop ###
+#        string += 'start=`date +%s.%N`\n'
+#        string += 'for i in {1..100000}\n'
+#        string += 'do\n'
+#        string += '    j=i*i\n'
+#        string += 'done\n'
+#        string += 'end=`date +%s.%N`\n'
+#        string += 'runtime=$( echo "$end - $start" | bc -l)\n'
+#        string += 'echo "test for-loop took $runtime sec"\n'
         ap = AccessPattern(self.access_pattern, self.db_size_dict)
+        gt = ap.get_gt_expr()
+        pt = ap.get_pt_expr()
         iov = ap.get_iov_expr()
         for i in range(self.n_calls):
-            string += 'start=`date +%s.%N`\n'
-            string += f'echo res=`./executables/cli_get {ap.gt()} {ap.pt()} {iov} 0 `\n'
-            string += 'end=`date +%s.%N`\n'
-            string += 'runtime=$( echo "$end - $start" | bc -l)\n'
-            string += 'echo runtime=$runtime\n'
+            string += f'echo requesting payload url for gt={gt}, pt={pt}, and iov={iov}\n'
+            string += 'echo begin client: `date +%s%3N`\n'
+            string += f'echo res=`./executables/cli_get {gt} {pt} {iov} 0 `\n'
+            string += 'echo end client: `date +%s%3N`\n'
     
         with open(self.output + '/run.sh', 'w') as f:
             f.write(string)
@@ -101,7 +135,11 @@ class Campaign:
 
     def set_db_size_dict(self):
         x = subprocess.run('executables/check_size', capture_output=True)
-        x_dict = json.loads(x.stdout.decode("utf-8"))
+        resp = x.stdout.decode("utf-8").split('\n')
+        for line in resp:
+            if "n_global_tag" in line:
+                break
+        x_dict = json.loads(line)
         x_dict = x_dict['msg']
         self.db_size_dict = x_dict
 

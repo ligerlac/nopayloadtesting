@@ -1,4 +1,5 @@
 import argparse
+from datetime import datetime
 from nopayloadtesting.campaign import Campaign
 from nopayloadtesting.summariser import Summariser
 
@@ -22,7 +23,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output', type=str, default='output/latest', help='output folder') 
+    date_str = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")[:-3]
+    parser.add_argument('--output', type=str, default=f'output/{date_str}', help='output folder') 
     parser.add_argument('--njobs', type=int, default=2, help='number of jobs') 
     parser.add_argument('--ncalls', type=int, default=2, help='number of calls to service by job')
     parser.add_argument('--executable', type=str, default='executables/client_lino.sh', help='path to executable')

@@ -1,0 +1,17 @@
+001 (1481816.001.000) 2022-11-15 03:00:43 Job executing on host: <130.199.157.139:9618?addrs=130.199.157.139-9618&noUDP&sock=92827_ac5
+2_3>
+001 (1481816.089.000) 2022-11-15 03:01:36 Job executing on host: <130.199.156.109:9618?addrs=130.199.156.109-9618&alias=spool0870.sdcc
+.bnl.gov&noUDP&sock=startd_253354_712e>
+001 (1481816.031.000) 2022-11-15 03:01:08 Job executing on host: <130.199.157.156:9618?addrs=130.199.157.156-9618&noUDP&sock=135092_03
+17_3>
+
+
+130.199.157.139 -> spool0679.sdcc.bnl.gov
+130.199.157.156 -> spool0696.sdcc.bnl.gov
+130.199.156.109 -> spool0870.sdcc.bnl.gov
+130.199.157.144 -> spool0684.sdcc.bnl.gov
+130.199.157.148 -> spool0688.sdcc.bnl.gov
+130.199.157.153 -> spool0693.sdcc.bnl.gov
+130.199.157.150 -> spool0690.sdcc.bnl.gov
+130.199.157.155 -> spool0695.sdcc.bnl.gov
+130.199.157.133 -> spool0673.sdcc.bnl.gov
