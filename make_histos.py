@@ -10,12 +10,12 @@ import glob
 
 def main(args):
     for f in glob.glob(args.folder):
-        summariser = Summariser(f)
-        summariser.extract_raw_results()
-        summariser.save_raw_results()
+#        summariser = Summariser(f)
+#        summariser.extract_raw_results()
+#        summariser.save_raw_results()
         
-#        plotter = Plotter(folder=f)
-#        plotter.make_summary_plot()
+        plotter = Plotter(folder=f)
+        plotter.make_summary_plot()
 
     
 if __name__ == '__main__':

@@ -7,10 +7,14 @@ from datetime import datetime, timedelta
 class Plotter:
     def __init__(self, folder):
         self.folder = folder
-        self.run_times = np.load(folder + '/run_times.npy')
-        self.curl_times = np.load(folder + '/curl_times.npy')
+        self.curl_begins = np.load(folder + '/curl_begins.npy')
+        self.curl_ends = np.load(folder + '/curl_ends.npy')
+        self.client_begins = np.load(folder + '/client_begins.npy')
+        self.client_ends = np.load(folder + '/client_ends.npy')
         self.http_codes = np.load(folder + '/http_codes.npy')
-        if (self.run_times.size != self.http_codes.size) or (self.run_times.size != self.curl_times.size):
+        self.curl_times = self.curl_ends - self.curl_begins
+        self.client_times = self.client_ends - self.client_begins
+        if not (self.curl_begins.size == self.curl_ends.size == self.client_begins.size == self.client_ends.size == self.http_codes.size):
             print('Problem: different number of run times and http codes')
         with open(self.folder + '/campaign_config.json', 'r') as f:
             self.campaign_config = json.load(f)
@@ -19,7 +23,7 @@ class Plotter:
     def get_meta_str(self):
         cc = self.campaign_config
         elapsed_time_htc = self.get_elapsed_time()
-        elapsed_time_sum = np.sum(self.run_times)
+        elapsed_time_sum = np.sum(self.client_times)
         total_calls = cc["n_jobs"]*cc["n_calls"]
         print(f'cc = {cc}')
         return f'client_conf:\n{cc["client_conf"]}\n' \
@@ -166,9 +170,9 @@ class Plotter:
         fig.set_figheight(7)
         fig.set_figwidth(11)
         fig.suptitle('Curl Performance Summary')
-        axs[0][0].hist(self.run_times)
+        axs[0][0].hist(self.client_times)
         axs[0][0].set_xlabel('response time [s]')
-        decorate_info_box(axs[0][0], self.run_times)
+        decorate_info_box(axs[0][0], self.client_times)
         axs[0][1].hist(self.curl_times)
         axs[0][1].set_xlabel('curl time [s]')
         decorate_info_box(axs[0][1], self.curl_times)
