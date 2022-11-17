@@ -1,5 +1,6 @@
-import re, glob
+import re, glob, os
 import numpy as np
+import time
 
 
 class Summariser:
@@ -14,11 +15,13 @@ class Summariser:
 
 
     def extract_raw_results(self):
-        _curl_begins, _curl_ends, _client_begins, _client_ends, _http_codes = [], [], [], [], []
+        _curl_begins, _curl_ends, _client_begins, _client_ends, _http_codes, _test_curl_times = [], [], [], [], [], []
         for fn in glob.iglob(f'{self.output}/jobs/*out'):
             with open(fn, 'r') as f:
                 for line in f:
-                    if re.search('begin client', line):
+                    if re.search('test curl took', line):
+                        _test_curl_times.append(float(line.split('test curl took ')[1].split(' ')[0]))
+                    elif re.search('begin client', line):
                         _client_begins.append(int(line.split('begin client: ')[1].strip()))
                     elif re.search('end client', line):
                         _client_ends.append(int(line.split('end client: ')[1].strip()))
@@ -31,23 +34,7 @@ class Summariser:
         self.client_begins = _client_begins
         self.client_ends = _client_ends
         self.http_codes = _http_codes
-
-
-    def extract_raw_results_old(self):
-        _run_times, _curl_times, _http_codes = [], [], []
-        for fn in glob.iglob(f'{self.output}/jobs/*out'):
-            with open(fn, 'r') as f:
-                for line in f:
-                    if re.search('runtime', line):
-                        _run_times.append(float(line.split('runtime=')[1].strip()))
-                    elif re.search('"code":', line):
-                        _http_codes.append(int(line.split('"code":')[1].split(',')[0].strip()))
-                        _curl_times.append(float(line.split('Time difference = ')[1].split('[s]')[0]))
-                    elif re.search('"code":', line):
-                        _http_codes.append(int(line.split('"code":')[1].split(',')[0].strip()))
-        self.run_times = np.array(_run_times)
-        self.curl_times = np.array(_curl_times)
-        self.http_codes = np.array(_http_codes)
+        self.test_curl_times = _test_curl_times
 
     
     def save_raw_results(self):
@@ -56,9 +43,11 @@ class Summariser:
         np.save(self.output+'/client_begins.npy', self.client_begins)
         np.save(self.output+'/client_ends.npy', self.client_ends)
         np.save(self.output+'/http_codes.npy', self.http_codes)
+        np.save(self.output+'/test_curl_times.npy', self.test_curl_times)
 
 
     def clean_up(self):
+        time.sleep(1)
         os.rmdir(self.output + '/jobs/')
 
 
