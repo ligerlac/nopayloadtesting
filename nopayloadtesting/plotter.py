@@ -12,19 +12,25 @@ class Plotter:
         self.client_begins = np.load(folder + '/client_begins.npy')
         self.client_ends = np.load(folder + '/client_ends.npy')
         self.http_codes = np.load(folder + '/http_codes.npy')
+        self.failed_tests = np.load(folder + '/failed_tests.npy')
+        self.test_curl_times = np.load(folder + '/test_curl_times.npy')
+        self.job_ids = np.load(folder + '/job_ids.npy')
         self.curl_times = self.curl_ends - self.curl_begins
         self.client_times = self.client_ends - self.client_begins
         if not (self.curl_begins.size == self.curl_ends.size == self.client_begins.size == self.client_ends.size == self.http_codes.size):
             print('Problem: different number of run times and http codes')
+            
         with open(self.folder + '/campaign_config.json', 'r') as f:
             self.campaign_config = json.load(f)
+
+        self.job_dict = self.get_id_dict_from_log()
 
 
     def get_meta_str(self):
         cc = self.campaign_config
         elapsed_time_htc = self.get_elapsed_time()
         elapsed_time_sum = np.sum(self.client_times)
-        total_calls = cc["n_jobs"]*cc["n_calls"]
+        total_calls = self.client_times.size#cc["n_jobs"]*cc["n_calls"]
         print(f'cc = {cc}')
         return f'client_conf:\n{cc["client_conf"]}\n' \
                f'total calls:\n{total_calls} \n' \
@@ -36,34 +42,8 @@ class Plotter:
                f'n_global_tag: {cc["db_size_dict"]["n_global_tag"]}\n' \
                f'n_pt: {cc["db_size_dict"]["n_pt"]}\n' \
                f'n_iov_attached: {cc["db_size_dict"]["n_iov_attached"]}\n' \
-               f'n_iov_tot: {cc["db_size_dict"]["n_iov_tot"]}\n' \
+#               f'n_iov_tot: {cc["db_size_dict"]["n_iov_tot"]}\n' \
                
-
-    def get_job_start_times(self):
-        start_times = []
-        with open(self.folder + '/log.log', 'r') as f:
-            for line in f:
-                if not ' Job executing on host:' in line:
-                    continue
-                begin = line.split(' Job executing on host:')[0]
-                begin = begin.split(') ')[1]
-                begin = datetime.strptime(begin, "%Y-%m-%d %H:%M:%S")        
-                start_times.append(begin)
-        return start_times
-
-    
-    def get_job_end_times(self):
-        end_times = []
-        with open(self.folder + '/log.log', 'r') as f:
-            for line in list(f):
-                if not ' Job terminated.' in line:
-                    continue
-                end = line.split(' Job terminated.')[0]
-                end = end.split(') ')[1]
-                end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
-                end_times.append(end)
-        return end_times
-
 
     def get_id_dict_from_log(self):
         # this returns a dict: {id_0: {begin: b_0, end: e_0}, id_1: ...}
@@ -72,13 +52,14 @@ class Plotter:
         with open(self.folder + '/log.log', 'r') as f:
             for line in list(f):
                 if 'Job executing' in line:
-                    job_id = line.split('(')[1].split(')')[0]
+                    job_id = int(line.split('(')[1].split(')')[0].split('.')[1])
                     begin = line.split(' Job executing on host:')[0]
                     begin = begin.split(') ')[1]
                     begin = datetime.strptime(begin, "%Y-%m-%d %H:%M:%S").timestamp()
-                    id_dict[job_id] = {'begin': begin}
+                    host = line.split('on host: <')[1].split(':')[0]
+                    id_dict[job_id] = {'begin': begin, 'host': host}
                 if 'Job terminated.' in line:
-                    job_id = line.split('(')[1].split(')')[0]
+                    job_id = int(line.split('(')[1].split(')')[0].split('.')[1])
                     end = line.split(' Job terminated.')[0]
                     end = end.split(') ')[1]
                     end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S").timestamp()
@@ -87,30 +68,11 @@ class Plotter:
         return id_dict
 
 
-    def get_jobs(self):
-        # returns a list [{id: id_0, start: ...}, {...}]
-        jobs = []
-        id_dict = self.get_id_dict_from_log()
-        job_ids = []
-        start_time_stamps = []
-        end_time_stamps = []
-        for job_id, job in id_dict.items():
-            job_ids.append(job_id)
-            start_time_stamps.append(job['begin'])
-            end_time_stamps.append(job['end'])
-        for j, s, e in sorted(zip(job_ids, start_time_stamps, end_time_stamps), key=lambda triplet: triplet[2]):
-            d = e - s
-            f = self.campaign_config['n_calls'] / d
-            jobs.append({'id': j, 'start': s, 'end': e, 'duration': d, 'freq': f})
-        return jobs
-            
 
     def remove_unfinished_jobs(self, jobs_dict):
         r = dict(jobs_dict)
         for job_id, job in r.items():
-            try:
-                _ = job['end']
-            except KeyError:
+            if not 'end' in job:
                 del jobs_dict[job_id]
 
 
@@ -132,64 +94,104 @@ class Plotter:
                 break
         return end - begin
 
-    
+
     def get_ts_frequency(self):
-        jobs = self.get_jobs()
-        end_time_stamps = []
-        frequencies = []
-        for job in jobs:
-            end_time_stamps.append(job['end'])
-        for ts in end_time_stamps:
-            f = 0
-            for j in jobs:
-                if j['start'] < ts <= j['end']:
-                    f += j['freq']
-            frequencies.append(f)
-        return end_time_stamps, frequencies
-
+        request_time_stamps_sec = (self.client_begins - self.client_begins[0])/1000
+        duration = request_time_stamps_sec.max() - request_time_stamps_sec.min()
+        n_bins = int(duration) + 1
+        bins = list(range(n_bins+1))
+        frequency = np.histogram(request_time_stamps_sec, bins=bins)
+        be = frequency[1]
+        bin_middles = [(be[i] + be[i+1]) / 2 for i in range(len(be)-1)]
+        return bin_middles, frequency[0]
             
-    def get_ts_running_jobs(self):
-        jobs = self.get_jobs()
-        end_time_stamps = []
-        running_jobs = []
-        for job in jobs:
-            end_time_stamps.append(job['end'])
-        for ts in end_time_stamps:
-            f = 0
-            n = 0
-            for j in jobs:
-                if j['start'] < ts <= j['end']:
-                    n += 1
-            running_jobs.append(n)
-        return end_time_stamps, running_jobs
 
+    def get_host_duration(self):
+        good_hosts, bad_hosts = [], []
+        good_durations, bad_durations = [], []
+        for job_id, job_dict in self.job_dict.items():
+            if job_id in self.failed_tests:
+                bad_hosts.append(job_dict["host"])
+                bad_durations.append(job_dict['end'] - job_dict['begin'])
+            else:
+                good_hosts.append(job_dict["host"])
+                good_durations.append(job_dict['end'] - job_dict['begin'])
+        labels = [str(l) for l in np.unique(np.concatenate([good_hosts, bad_hosts]), return_inverse=True)[1]]
+        good_labels = labels[:len(good_durations)]
+        bad_labels = labels[:len(bad_durations)]
+        return good_labels, bad_labels, good_durations, bad_durations
+
+
+    def get_good_and_bad_test_curl_times(self):
+        good_times, bad_times = [], []
+        for i, job_id in enumerate(self.job_ids):
+            if job_id in self.failed_tests:
+                bad_times.append(self.test_curl_times[i])
+            else:
+                good_times.append(self.test_curl_times[i])
+        return good_times, bad_times
+
+    
+    def get_normalised_curl_times(self):
+        good_times = self.get_good_and_bad_test_curl_times()[0]
+        normalised_curl_times = []
+        n_calls = self.campaign_config['n_calls']
+        print(f'n_calls = {n_calls}')
+        for i, g_t in enumerate(good_times):
+            normalised_curl_times = [*normalised_curl_times, *self.curl_times[i*n_calls:(i+1)*n_calls]/g_t/1000]
+        return normalised_curl_times
+#        good_test_curl_times = self.get_good_and_bad_test_curl_times()[0]
+#        mean_test_curl_time = np.mean(good_test_curl_times)
+#        return self.curl_times / mean_test_curl_time
+    
 
     def make_summary_plot(self):
-#        fig, axs = plt.subplots(2, 2, sharey='row')
-        fig, axs = plt.subplots(2, 2)
-        fig.set_figheight(7)
-        fig.set_figwidth(11)
-        fig.suptitle('Curl Performance Summary')
+        fig, axs = plt.subplots(3, 3)
+#        fig.set_figheight(10)
+#        fig.set_figwidth(11)
+        fig.set_figheight(8)
+        fig.set_figwidth(8)
+        fig.suptitle('nopayloaddb Curl Performance Summary')
         axs[0][0].hist(self.client_times)
-        axs[0][0].set_xlabel('response time [s]')
+        axs[0][0].set_xlabel('client time [ms]')
         decorate_info_box(axs[0][0], self.client_times)
+        
         axs[0][1].hist(self.curl_times)
-        axs[0][1].set_xlabel('curl time [s]')
+        axs[0][1].set_xlabel('curl time [ms]')
         decorate_info_box(axs[0][1], self.curl_times)
-        axs[1][0].hist(self.http_codes)
-        axs[1][0].set_xlabel('error code')
+        
+        normalised_curl_times = self.get_normalised_curl_times()
+        axs[0][2].hist(normalised_curl_times)
+        axs[0][2].set_xlabel('curl time ratio (npdb / google)')
+        decorate_info_box(axs[0][2], normalised_curl_times)
         
         ts, n = self.get_ts_frequency()
-        print(f'f = {n}')
-        ts, n = self.get_ts_running_jobs()
-        print(f'n = {n}')
-        axs[1][1].plot(ts, n)
-        axs[1][1].set_xlabel('elapsed time [s]')
-        axs[1][1].set_ylabel('avg. f [Hz]')
+        axs[1][0].plot(ts, n)
+        axs[1][0].set_xlabel('elapsed time [s]')
+        axs[1][0].set_ylabel('f [Hz]')
+        
+        good_labels, bad_labels, good_durations, bad_durations = self.get_host_duration()
+        axs[1][1].scatter(good_labels, good_durations)
+        axs[1][1].scatter(bad_labels, bad_durations)
+        axs[1][1].set_xlabel('host node [a.u.]')
+        axs[1][1].set_ylabel('job duration [s]')
+
+        axs[1][2].hist(self.http_codes)
+        axs[1][2].set_xlabel('error code')
+
+        good_times, bad_times = self.get_good_and_bad_test_curl_times()
+        axs[2][0].hist(good_times, bins=[0.5*i for i in range(21)])
+        axs[2][0].hist(bad_times, bins=[0.5*i for i in range(21)])
+        axs[2][0].set_xlabel('test curl time [s]')
+
+        axs[2][1].hist(good_times)
+        axs[2][1].set_xlabel('test curl time [s]')
+
         plt.figtext(0.82, 0.3, self.get_meta_str(), fontsize=11)
         plt.subplots_adjust(right=0.8)
         axs[0][0].set_yscale('log')
         axs[0][1].set_yscale('log')
+        axs[0][2].set_yscale('log')
 #        plt.savefig(f'{self.folder}/summary_plot.png')
         plt.show()
 
@@ -198,10 +200,10 @@ def decorate_info_box(axis, arr):
     min_, max_ = np.min(arr), np.max(arr)
     mu, sig, md = np.mean(arr), np.std(arr), np.median(arr)
     props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-    textstr = '\n'.join((r'$min=%.4f$' % (min_, ),
-                         r'$max=%.4f$' % (max_, ),
-                         r'$\mu=%.4f$' % (mu, ),
-                         r'$\sigma=%.4f$' % (sig, ),
-                         r'$median=%.4f$' % (md, )))
-    axis.text(0.4, 0.95, textstr, transform=axis.transAxes, fontsize=12,
+    textstr = '\n'.join((r'$min=%.1f$' % (min_, ),
+                         r'$max=%.1f$' % (max_, ),
+                         r'$\mu=%.1f$' % (mu, ),
+                         r'$\sigma=%.1f$' % (sig, ),
+                         r'$med=%.1f$' % (md, )))
+    axis.text(0.6, 0.95, textstr, transform=axis.transAxes, fontsize=12,
               verticalalignment='top', bbox=props)
