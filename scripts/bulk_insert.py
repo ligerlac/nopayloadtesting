@@ -132,7 +132,7 @@ if __name__ == '__main__':
     parser.add_argument("--hostname", type=str, default="test111.apps.usatlas.bnl.gov")
     parser.add_argument("--n_gt", type=int, default=1)
     parser.add_argument("--n_pt", type=int, default=1)
-    parser.add_argument("--first_iov", type=int, default=1)
+    parser.add_argument("--first_iov", type=int, default=0)
     parser.add_argument("--last_iov", type=int, default=10)
     parser.add_argument("--bulk_size", type=int, default=5000)
     args = parser.parse_args()
