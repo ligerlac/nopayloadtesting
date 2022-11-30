@@ -1,13 +1,13 @@
 #!/usr/bin/bash
 
-export export NOPAYLOADCLIENT_CONF=sdcc.json
-./executables/check_size
+export NOPAYLOADCLIENT_CONF=sdcc.json
+export HOSTNAME=test111.apps.usatlas.bnl.gov
 
-#for n_iov in 1 10 100 1000 2000 3000 4000 5000 6000 7000 8000 9000 10000
-#for n_iov in 12000 14000 16000 18000 20000 25000 30000 35000 40000 45000 50000
-for n_iov in 45000 50000
+last_n_iov=0
+for n_iov in 100 1000 10000 100000 500000 1000000 2000000 3000000 4000000 5000000
 do
-    ./executables/insert_performance_evaluation 1 1 $n_iov
+    python scripts/bulk_insert.py --hostname $HOSTNAME --first_iov $last_n_iov --last_iov $n_iov 
     python run_campaign.py --output output/my_instance/iov_scaling/1_1_$n_iov/random/ --clientconf sdcc.json --pattern rrr --njobs 100 --ncalls 100
     python run_campaign.py --output output/my_instance/iov_scaling/1_1_$n_iov/constant/ --clientconf sdcc.json --pattern ccc --njobs 100 --ncalls 100
+    last_n_iov=$n_iov
 done
