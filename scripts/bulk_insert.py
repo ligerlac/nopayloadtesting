@@ -71,7 +71,14 @@ class BulkInserter:
     def attach_payload_list(self, gt, pl):
         url = self.base_url + 'pl_attach'
         res = requests.put(url=url, json={'payload_list': pl, 'global_tag': gt})
-        print(res.json())
+
+    def get_last_plt_iov_dict(self, global_tag):
+        max_iov = 2147483647
+        url = self.base_url + 'payloadiovs/?gtName=' + global_tag + '&majorIOV=' + str(max_iov) + '&minorIOV=0'
+        last_plt_iov_dict = {}
+        for obj in requests.get(url).json():
+            last_plt_iov_dict[obj['payload_type']] = obj['payload_iov'][0]['major_iov']
+        return last_plt_iov_dict
 
     def attach_payload_lists(self):
         for gt in self.gt_names:
@@ -94,18 +101,23 @@ class BulkInserter:
     def insert(self):
         for gt in self.gt_names:
             for pt in self.pt_names:
+                plt_iov_dict = self.get_last_plt_iov_dict(gt)
+                try:
+                    first_iov = plt_iov_dict[pt] + 1
+                except KeyError:
+                    first_iov = 0
                 pll_name = self.get_payload_list_name(gt, pt)
-                print(f'starting to inserting {self.params.last_iov - self.params.first_iov} iovs into pll {pll_name}')
-                self.insert_iov(pll_name)
+                print(f'starting to inserting iovs from {first_iov} to {self.params.n_iov} into pll {pll_name}')
+                self.insert_iov(pll_name, first_iov)
     
-    def insert_iov(self, pll_name):
+    def insert_iov(self, pll_name, first_iov):
         url = self.base_url + 'bulk_piov'
         piov_list = []
-        for iov in range(self.params.first_iov, self.params.last_iov):
+        for iov in range(first_iov, self.params.n_iov):
             piov = {
                 'payload_url': f'{pll_name}_{iov}_dummy_file.data',
                 'payload_list': pll_name,
-                'major_iov':  iov,
+                'major_iov': iov,
                 'minor_iov': 0
             }
             piov_list.append(piov)
@@ -132,8 +144,7 @@ if __name__ == '__main__':
     parser.add_argument("--hostname", type=str, default="test111.apps.usatlas.bnl.gov")
     parser.add_argument("--n_gt", type=int, default=1)
     parser.add_argument("--n_pt", type=int, default=1)
-    parser.add_argument("--first_iov", type=int, default=0)
-    parser.add_argument("--last_iov", type=int, default=10)
+    parser.add_argument("--n_iov", type=int, default=0)
     parser.add_argument("--bulk_size", type=int, default=5000)
     args = parser.parse_args()
     main(args)
