@@ -24,7 +24,7 @@ class AccessPattern:
         if self.pattern[0] == 'c':
             return 'global_tag_0'
         else:
-            return f'global_tag_$((RANDOM%{self.n_gt}))'
+            return f'global_tag_$((RANDOM%{self.n_gt+1}))'
 
     def get_pt_expr(self):
         if self.pattern[1] == 'c':
