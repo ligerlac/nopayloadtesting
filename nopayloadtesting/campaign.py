@@ -33,10 +33,10 @@ class AccessPattern:
             return f'pl_type_$((RANDOM%{self.n_pt}))'
 
     def get_iov_expr(self):
+        max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
         if self.pattern[2] == 'c':
-            return '0'
+            return f'{max_iov/2}'
         else:
-            max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
             return f'$((RANDOM%{max_iov}))'
 
 

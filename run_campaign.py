@@ -19,7 +19,7 @@ def main(args):
     summariser.save_raw_results()
     summariser.clean_up()
 
-    print(f'http_codes = {summariser.http_codes}')
+#    print(f'http_codes = {summariser.http_codes}')
 
 
 if __name__ == '__main__':

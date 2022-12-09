@@ -73,10 +73,14 @@ class BulkInserter:
         res = requests.put(url=url, json={'payload_list': pl, 'global_tag': gt})
 
     def get_last_plt_iov_dict(self, global_tag):
+        print('get_last_plt_iov_dict()')
         max_iov = 2147483647
-        url = self.base_url + 'payloadiovs/?gtName=' + global_tag + '&majorIOV=' + str(max_iov) + '&minorIOV=0'
+        url = self.base_url + 'payloadiovsfast/?gtName=' + global_tag + '&majorIOV=' + str(max_iov) + '&minorIOV=0'
+        print(f'url = {url}')
         last_plt_iov_dict = {}
-        for obj in requests.get(url).json():
+        resp = requests.get(url)
+        print(f'resp.json() = {resp.json()}')
+        for obj in resp.json():
             last_plt_iov_dict[obj['payload_type']] = obj['payload_iov'][0]['major_iov']
         return last_plt_iov_dict
 
