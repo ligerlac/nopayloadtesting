@@ -10,6 +10,11 @@ from pathlib import Path
 #d = {'const': 'pl_type_0', 'rand': 'TODO'}
 #d = {'const': 'global_tag_0', 'rand': 'TODO'}
 
+#m: middle
+#f: first
+#l: last
+#r: random
+
 
 class AccessPattern:
     # assumes (gt_i, pt_j, k) structure as defined in nopayloadclient example
@@ -21,21 +26,33 @@ class AccessPattern:
         print(f'initialized AP instance with pattern {pattern} and following db size:\n{db_size_dict}')
 
     def get_gt_expr(self):
-        if self.pattern[0] == 'c':
+        if self.pattern[2] == 'f':
             return 'global_tag_0'
+        elif self.pattern[2] == 'm':
+            return f'global_tag_{int(self.n_gt/2)}'
+        elif self.pattern[2] == 'l':
+            return f'global_tag_{self.n_gt-1}'
         else:
             return f'global_tag_$((RANDOM%{self.n_gt}))'
 
     def get_pt_expr(self):
-        if self.pattern[1] == 'c':
+        if self.pattern[2] == 'f':
             return 'pl_type_0'
+        elif self.pattern[2] == 'm':
+            return f'pl_type_{int(self.n_pt/2)}'
+        elif self.pattern[2] == 'l':
+            return f'pl_type_{self.n_pt-1}'
         else:
             return f'pl_type_$((RANDOM%{self.n_pt}))'
 
     def get_iov_expr(self):
-        max_iov = int(self.n_iov / (self.n_gt * self.n_pt))
-        if self.pattern[2] == 'c':
-            return f'{max_iov/2}'
+        max_iov = int(self.n_iov / (self.n_gt * self.n_pt)) + 1
+        if self.pattern[2] == 'f':
+            return '0'
+        elif self.pattern[2] == 'm':
+            return f'{int(max_iov/2)}'
+        elif self.pattern[2] == 'l':
+            return f'{max_iov}'
         else:
             return f'$((RANDOM%{max_iov}))'
 
@@ -136,7 +153,8 @@ class Campaign:
         string += f'  iov={iov}\n'
         string += '  echo requesting payload url for gt=$gt, pt=$pt, and iov=$iov\n'
         string += '  echo begin client: `date +%s%3N`\n'
-        string += '  echo res=`./executables/cli_get $gt $pt $iov 0 `\n'
+#        string += '  echo res=`./executables/cli_get $gt $pt $iov 0 `\n'
+        string += '  echo res=`./executables/cli_npc get $gt $pt $iov 0 `\n'
         string += '  echo end client: `date +%s%3N`\n'
         string += 'done\n'
     
@@ -148,7 +166,8 @@ class Campaign:
 
     def set_db_size_dict(self):
         print(os.environ["NOPAYLOADCLIENT_CONF"])
-        x = subprocess.run('executables/check_size', capture_output=True)
+#        x = subprocess.run('executables/check_size', capture_output=True)
+        x = subprocess.run(['executables/cli_npc', 'getSize'], capture_output=True)
         resp = x.stdout.decode("utf-8").split('\n')
         print(f'resp = {resp}')
         for line in resp:

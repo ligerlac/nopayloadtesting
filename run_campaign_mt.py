@@ -21,8 +21,8 @@ def main(args):
     res = requests.get(base_url+'/globalTags')
     n_iov = res.json()[0]['payload_iov_count']
     n_pll = res.json()[0]['payload_lists_count']
-    piov_url = base_url + '/payloadiovstest/?gtName=global_tag_0&majorIOV={iov}&minorIOV=0'
 
+    piov_url = base_url + '/' + args.endpoint + '/?gtName=global_tag_0&majorIOV={iov}&minorIOV=0'
 
     def get_piov_url():
         if args.pattern == 'first':
@@ -83,5 +83,7 @@ if __name__ == '__main__':
     parser.add_argument("--ncalls", type=int, default=100, help="number of calls to service per thread")
     parser.add_argument("--nthreads", type=int, default=100)
     parser.add_argument("--pattern", type=str, default="random", help=["random", "first", "last"])
+    parser.add_argument("--endpoint", type=str, default="payloadiovstest", help=["random", "first", "last"])
+#    parser.add_argument("--insert", type=bool, default=false)
     args = parser.parse_args()
     main(args)

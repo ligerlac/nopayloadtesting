@@ -1,3 +1,4 @@
+from datetime import datetime
 import requests
 import argparse
 
@@ -10,16 +11,21 @@ class BulkInserter:
         self.gt_statuses = ['unlocked']
         self.gt_names = [f'global_tag_{i}' for i in range(params.n_gt)]
         self.pt_names = [f'pl_type_{i}' for i in range(params.n_pt)]
+        self.n_iovs, self.begin_ts, self.end_ts, self.batch_sizes = [], [], [], []
 
     def get_payload_list_name(self, global_tag, pl_type):
+        print(f'get_payload_list_name(global_tag={global_tag}, pl_type={pl_type})')
         url = self.base_url + 'gtPayloadLists/' + global_tag
         res = requests.get(url).json()
+        print(f'res.json() = {res}')
         return res[pl_type]
 
     def get_existing_global_statuses(self):
+        print('get_existing_global_tag_statuses()')
         url = self.base_url + 'gtstatus'
-        r = requests.get(url).json()
-        return [gts['name'] for gts in r]
+        res = requests.get(url).json()
+        print(f'res.json() = {res}')
+        return [gts['name'] for gts in res]
 
     def create_global_tag_statuses(self):
         print('create_global_tag_statuses()')
@@ -29,13 +35,17 @@ class BulkInserter:
             self.create_global_tag_status(gts)
 
     def create_global_tag_status(self, name='unlocked'):
+        print(f'create_global_tag_status(name={name})')
         url = self.base_url + 'gtstatus'
-        r = requests.post(url=url, json={'name': name})
+        res =requests.post(url=url, json={'name': name})
+        print(f'res.json() = {res.json()}')
 
     def get_existing_global_tags(self):
+        print('get_existing_global_tags()')
         url = self.base_url + 'globalTags'
-        r = requests.get(url).json()
-        return [gt['name'] for gt in r]
+        res =requests.get(url).json()
+        print(f'res.json() = {res}')
+        return [gt['name'] for gt in res]
 
     def create_global_tags(self):
         print('create_global_tags()')
@@ -45,13 +55,17 @@ class BulkInserter:
             self.create_global_tag(gt)
 
     def create_global_tag(self, name):
+        print(f'create_global_tag(name={name})')
         url = self.base_url + 'gt'
-        r = requests.post(url=url, json={'status': 'unlocked', 'name': name})
+        res =requests.post(url=url, json={'status': 'unlocked', 'name': name, 'author': 'linogerlach'})
+        print(f'res.json() = {res.json()}')
 
     def get_existing_payload_types(self):
+        print(f'get_exisitng_payload_types()')
         url = self.base_url + 'pt'
-        r = requests.get(url).json()
-        return [pt['name'] for pt in r]
+        res =requests.get(url).json()
+        print(f'res.json() = {res}')
+        return [pt['name'] for pt in res]
 
     def create_payload_types(self):
         existing = self.get_existing_payload_types()
@@ -59,23 +73,30 @@ class BulkInserter:
             print(f'creating payload type {pt}...')
             self.create_payload_type(pt)
 
+
     def create_payload_type(self, name):
+        print(f'create_payload_type(name={name})')
         url = self.base_url + 'pt'
-        r = requests.post(url=url, json={'name': name})
+        res = requests.post(url=url, json={'name': name})
+        print(f'res.json() = {res.json()}')
 
     def create_payload_list(self, pl_type):
+        print(f'create_payload_list(pl_type={pl_type})')
         url = self.base_url + 'pl'
         res = requests.post(url=url, json={'payload_type': pl_type}).json()
+        print(f'res.json() = {res}')
         return res['name']
 
     def attach_payload_list(self, gt, pl):
+        print(f'attach_payload_list(gt={gt}, pl={pl})')
         url = self.base_url + 'pl_attach'
         res = requests.put(url=url, json={'payload_list': pl, 'global_tag': gt})
+        print(f'res.json() = {res.json()}')
 
     def get_last_plt_iov_dict(self, global_tag):
         print('get_last_plt_iov_dict()')
         max_iov = 2147483647
-        url = self.base_url + 'payloadiovsfast/?gtName=' + global_tag + '&majorIOV=' + str(max_iov) + '&minorIOV=0'
+        url = self.base_url + 'payloadiovs/?gtName=' + global_tag + '&majorIOV=' + str(max_iov) + '&minorIOV=0'
         print(f'url = {url}')
         last_plt_iov_dict = {}
         resp = requests.get(url)
@@ -105,17 +126,16 @@ class BulkInserter:
     def insert(self):
         for gt in self.gt_names:
             for pt in self.pt_names:
-                plt_iov_dict = self.get_last_plt_iov_dict(gt)
                 try:
+                    plt_iov_dict = self.get_last_plt_iov_dict(gt)
                     first_iov = plt_iov_dict[pt] + 1
-                except KeyError:
+                except Exception:
                     first_iov = 0
                 pll_name = self.get_payload_list_name(gt, pt)
                 print(f'starting to inserting iovs from {first_iov} to {self.params.n_iov} into pll {pll_name}')
                 self.insert_iov(pll_name, first_iov)
     
     def insert_iov(self, pll_name, first_iov):
-        url = self.base_url + 'bulk_piov'
         piov_list = []
         for iov in range(first_iov, self.params.n_iov):
             piov = {
@@ -126,15 +146,22 @@ class BulkInserter:
             }
             piov_list.append(piov)
             if (iov+1) % self.params.bulk_size == 0:
-                print(f'inserting {len(piov_list)} iovs... ')
-                r = requests.post(url=url, json=piov_list)
-                print(r)
+                self.insert_piov_list(iov+1, piov_list)
                 piov_list = []
 
         if piov_list:
-            print(f'inserting the remaining {len(piov_list)} iovs... ')
-            r = requests.post(url=url, json=piov_list)
-            print(r)
+            self.insert_piov_list(iov+1, piov_list)
+
+    def insert_piov_list(self, n_iovs, piov_list):
+        print(f'inserting {len(piov_list)} iovs... ')
+        self.n_iovs.append(n_iovs)
+        self.batch_sizes.append(len(piov_list))
+        self.begin_ts.append(datetime.now())
+        res = requests.post(url=self.base_url + 'bulk_piov', json=piov_list)
+        self.end_ts.append(datetime.now())
+        print(res)        
+
+        
 
 
 def main(args):
@@ -150,5 +177,6 @@ if __name__ == '__main__':
     parser.add_argument("--n_pt", type=int, default=1)
     parser.add_argument("--n_iov", type=int, default=0)
     parser.add_argument("--bulk_size", type=int, default=5000)
+    parser.add_argument("--output", type=str, default=None)
     args = parser.parse_args()
     main(args)
