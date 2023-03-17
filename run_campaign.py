@@ -7,7 +7,7 @@ from nopayloadtesting.summariser import Summariser
 
 def main(args):
     campaign = Campaign(client_conf=args.clientconf, n_jobs=args.njobs, n_calls=args.ncalls, 
-                       access_pattern=args.pattern, output=args.output)
+                        access_pattern=args.pattern, output=args.output)
     campaign.prepare()
     if args.dryrun:
         return

@@ -4,6 +4,75 @@ import json
 from datetime import datetime, timedelta
 
 
+class MTPlotter:
+    def __init__(self, folder):
+        self.folder = folder
+        self.curl_begins = np.load(folder + '/curl_begins.npy')*1000
+        self.curl_ends = np.load(folder + '/curl_ends.npy')*1000
+        print(f'self.curl_begins.size = {self.curl_begins.size}')
+        self.curl_times = self.curl_ends - self.curl_begins
+        self.mean_time = self.curl_times.mean()
+        self.std_time = np.std(self.curl_times)
+        with open(self.folder + '/campaign_config.json', 'r') as f:
+            self.campaign_config = json.load(f)
+        self.dt_wc = self.curl_ends.max() - self.curl_begins.min()
+        self.dt_sum = np.sum(self.curl_times)
+        self.total_calls = self.curl_times.size
+        self.mean_freq = self.total_calls / self.dt_wc * 1000
+        self.max_freq = self.get_max_freq()
+
+    def get_meta_str(self):
+        cc = self.campaign_config
+        print(f'cc = {cc}')
+        return f'total calls:\n{self.total_calls} \n' \
+               f'n_threads: {cc["n_threads"]} \n' \
+               f'n_calls: {cc["n_calls"]}\n' \
+               f'wall clock [s]: {round(self.dt_wc/1000, 1)}\n' \
+               f'avg. f [hz]: {round(self.mean_freq, 1)}\n' \
+               f'acc. pattern: {cc["pattern"]}\n' \
+               f'n_pll: {cc["n_pll"]}\n' \
+               f'n_iov:\n{cc["n_iov"]}\n'
+
+    def make_compact_summary_plot(self):
+        fig, axs = plt.subplots(1, 2)
+        #        fig.set_figheight(10)
+        #        fig.set_figwidth(11)
+        fig.set_figheight(5)
+        fig.set_figwidth(10)
+        fig.suptitle('nopayloaddb Curl Performance Summary')
+
+        axs[0].hist(self.curl_times)
+        axs[0].set_xlabel('curl time [ms]')
+        decorate_info_box(axs[0], self.curl_times)
+
+        ts, n = self.get_ts_frequency()
+        axs[1].plot(ts, n)
+        axs[1].set_xlabel('elapsed time [s]')
+        axs[1].set_ylabel('f [Hz]')
+
+        plt.figtext(0.82, 0.3, self.get_meta_str(), fontsize=11)
+        plt.subplots_adjust(right=0.8)
+        #axs[0].set_yscale('log')
+        #axs[1].set_yscale('log')
+
+        plt.show()
+
+    def get_max_freq(self):
+        bin_middles, freqs = self.get_ts_frequency()
+        return max(freqs)
+
+    def get_ts_frequency(self):
+        #request_time_stamps_sec = (self.curl_begins - self.curl_begins[0]) / 1000
+        request_time_stamps_sec = (self.curl_ends - self.curl_begins[0]) / 1000
+        duration = request_time_stamps_sec.max() - request_time_stamps_sec.min()
+        n_bins = int(duration) + 1
+        bins = list(range(n_bins + 1))
+        frequency = np.histogram(request_time_stamps_sec, bins=bins)
+        be = frequency[1]
+        bin_middles = [(be[i] + be[i + 1]) / 2 for i in range(len(be) - 1)]
+        return bin_middles, frequency[0]
+
+
 class Plotter:
     def __init__(self, folder):
         self.folder = folder
@@ -32,8 +101,7 @@ class Plotter:
         elapsed_time_sum = np.sum(self.client_times)
         total_calls = self.client_times.size#cc["n_jobs"]*cc["n_calls"]
         print(f'cc = {cc}')
-        return f'client_conf:\n{cc["client_conf"]}\n' \
-               f'total calls:\n{total_calls} \n' \
+        return f'total calls:\n{total_calls} \n' \
                f'n_jobs: {cc["n_jobs"]} \n' \
                f'n_calls: {cc["n_calls"]}\n' \
                f'dt (htc): {elapsed_time_htc}\n' \
@@ -41,7 +109,7 @@ class Plotter:
                f'acc. pattern: {cc["access_pattern"]}\n' \
                f'n_global_tag: {cc["db_size_dict"]["n_global_tag"]}\n' \
                f'n_pt: {cc["db_size_dict"]["n_pt"]}\n' \
-               f'n_iov_attached: {cc["db_size_dict"]["n_iov_attached"]}\n' \
+               f'n_iov_attached:\n{cc["db_size_dict"]["n_iov_attached"]}\n' \
 #               f'n_iov_tot: {cc["db_size_dict"]["n_iov_tot"]}\n' \
                
 
@@ -136,7 +204,6 @@ class Plotter:
         good_times = self.get_good_and_bad_test_curl_times()[0]
         normalised_curl_times = []
         n_calls = self.campaign_config['n_calls']
-        print(f'n_calls = {n_calls}')
         for i, g_t in enumerate(good_times):
             normalised_curl_times = [*normalised_curl_times, *self.curl_times[i*n_calls:(i+1)*n_calls]/g_t/1000]
         return normalised_curl_times
@@ -149,8 +216,8 @@ class Plotter:
         fig, axs = plt.subplots(3, 3)
 #        fig.set_figheight(10)
 #        fig.set_figwidth(11)
-        fig.set_figheight(8)
-        fig.set_figwidth(8)
+        fig.set_figheight(10)
+        fig.set_figwidth(10)
         fig.suptitle('nopayloaddb Curl Performance Summary')
         axs[0][0].hist(self.client_times)
         axs[0][0].set_xlabel('client time [ms]')
@@ -192,8 +259,38 @@ class Plotter:
         axs[0][0].set_yscale('log')
         axs[0][1].set_yscale('log')
         axs[0][2].set_yscale('log')
-#        plt.savefig(f'{self.folder}/summary_plot.png')
+
         plt.show()
+#        plt.savefig(f'{self.folder}/summary_plot.png')
+#        plt.savefig(f'output/{self.folder.replace("/", "-")}.png')
+
+
+    def make_compact_summary_plot(self):
+        fig, axs = plt.subplots(1, 2)
+        #        fig.set_figheight(10)
+        #        fig.set_figwidth(11)
+        fig.set_figheight(5)
+        fig.set_figwidth(10)
+        fig.suptitle('nopayloaddb Curl Performance Summary')
+
+        axs[0].hist(self.curl_times)
+        axs[0].set_xlabel('curl time [ms]')
+        decorate_info_box(axs[0], self.curl_times)
+
+        ts, n = self.get_ts_frequency()
+        axs[1].plot(ts, n)
+        axs[1].set_xlabel('elapsed time [s]')
+        axs[1].set_ylabel('f [Hz]')
+
+
+        plt.figtext(0.82, 0.3, self.get_meta_str(), fontsize=11)
+        plt.subplots_adjust(right=0.8)
+        #axs[0].set_yscale('log')
+        #axs[1].set_yscale('log')
+
+        plt.show()
+#        plt.savefig(f'{self.folder}/summary_plot.png')
+#        plt.savefig(f'output/{self.folder.replace("/", "-")}.png')
 
 
 def decorate_info_box(axis, arr):
