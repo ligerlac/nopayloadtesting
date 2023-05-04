@@ -1,14 +1,18 @@
+import argparse
 import asyncio
-from aiohttp import ClientSession
+import random
 from datetime import datetime
 import numpy as np
-import time, random, argparse
+from aiohttp import ClientSession
+import concurrent.futures
+import requests
+import logging
 
 
 MAX_IOV = 2147483647
 
 
-class AsyncRequestMaker:
+class RequestMaker:
 
     def __init__(self, host_name, end_point, global_tag, pattern):
         self.pattern = pattern
@@ -18,6 +22,12 @@ class AsyncRequestMaker:
         major = {'first': 0, 'last': MAX_IOV, 'random': random.randint(0, MAX_IOV)}[self.pattern]
         minor = {'first': 0, 'last': MAX_IOV, 'random': random.randint(0, MAX_IOV)}[self.pattern]
         return f'{self.base_url}&majorIOV={major}&minorIOV={minor}'
+
+    def make_requests(self, n):
+        raise NotImplemented
+
+
+class AsyncRequestMaker(RequestMaker):
 
     def make_requests(self, n):
         return asyncio.run(self._make_requests(n))
@@ -43,14 +53,29 @@ class AsyncRequestMaker:
         return results
 
 
+class ThreadingRequestMaker(RequestMaker):
+
+    def make_requests(self, n):
+        urls = [self.get_piov_url() for _ in range(n)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            results = executor.map(self.make_request, urls)
+        return results
+
+    def make_request(self, url):
+        beg_ts = datetime.now().timestamp()
+        res = requests.get(url)
+        return beg_ts, datetime.now().timestamp(), res
+
 
 def main(args):
+    logging.getLogger().setLevel(args.log_level)
+
+    cls_dict = {'threading': ThreadingRequestMaker, 'async': AsyncRequestMaker}
+    MakerClass = cls_dict[args.style]
+    req_maker = MakerClass(args.hostname, args.endpoint, args.gt, args.pattern)
 
     wall_beg = datetime.now().timestamp()
-
-    req_maker = AsyncRequestMaker(args.hostname, args.endpoint, args.gt, args.pattern)
     results = req_maker.make_requests(args.ncalls)
-
     wall_duration = datetime.now().timestamp() - wall_beg
     print(f'campaign took {wall_duration}')
 
@@ -70,9 +95,12 @@ if __name__ == '__main__':
     date_str = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')[:-3]
     parser.add_argument('--output', type=str, default=f'output/{date_str}', help='output folder')
     parser.add_argument('--hostname', type=str, default='test111.apps.usatlas.bnl.gov')
-    parser.add_argument('--ncalls', type=int, default=100, help='number of total calls to service')
+    parser.add_argument('--ncalls', type=int, default=10, help='number of total calls to service')
     parser.add_argument('--pattern', type=str, default='random', choices=['random', 'first', 'last'])
+    parser.add_argument('--style', type=str, default='async', choices=['async', 'threading', 'htc'])
     parser.add_argument('--endpoint', type=str, default='payloadiovs')
     parser.add_argument('--gt', type=str, default='my_gt')
+    parser.add_argument('-l', '--log-level', choices=['DEBUG', 'INFO', 'WARNING'],
+                        default='WARNING')
     args = parser.parse_args()
     main(args)
